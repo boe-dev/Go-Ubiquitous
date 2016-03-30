@@ -29,6 +29,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v4.content.ContextCompat;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.text.format.Time;
@@ -36,6 +37,8 @@ import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
 import java.lang.ref.WeakReference;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -87,7 +90,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
-        Paint mTextPaint;
+        Paint mTextPaint, mDateTextPaint;
         boolean mAmbient;
         Time mTime;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -122,10 +125,13 @@ public class MyWatchFace extends CanvasWatchFaceService {
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(resources.getColor(R.color.background));
+            mBackgroundPaint.setColor(ContextCompat.getColor(getApplicationContext(), R.color.background));
 
             mTextPaint = new Paint();
-            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mTextPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_text));
+
+            mDateTextPaint = new Paint();
+            mDateTextPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_date_text));
 
             mTime = new Time();
         }
@@ -191,8 +197,11 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
             float textSize = resources.getDimension(isRound
                     ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
+            float dateTextSize = resources.getDimension(isRound
+                    ? R.dimen.digital_date_text_size_round : R.dimen.digital_date_text_size);
 
             mTextPaint.setTextSize(textSize);
+            mDateTextPaint.setTextSize(dateTextSize);
         }
 
         @Override
@@ -214,6 +223,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
                     mTextPaint.setAntiAlias(!inAmbientMode);
+                    mDateTextPaint.setAntiAlias(!inAmbientMode);
                 }
                 invalidate();
             }
@@ -262,6 +272,12 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     ? String.format("%d:%02d", mTime.hour, mTime.minute)
                     : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
             canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+
+            // Draw MON 01 in ambient mode or DAY, MON 01 YEAR in interactive mode.
+            String dateText = mAmbient
+                ? new SimpleDateFormat("MMM dd").format(new Date(mTime.toMillis(true)))
+                : new SimpleDateFormat("EEE, MMM dd yyyy").format(new Date(mTime.toMillis(true)));
+            canvas.drawText(dateText, mXOffset, (mYOffset + 30), mDateTextPaint);
         }
 
         /**
