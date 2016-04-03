@@ -24,8 +24,10 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Picture;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.PictureDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -33,14 +35,21 @@ import android.support.v4.content.ContextCompat;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.text.format.Time;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
+
+import com.google.android.gms.wearable.DataMap;
+import com.patloew.rxwear.RxWear;
+import com.patloew.rxwear.transformers.MessageEventGetDataMap;
 
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+
+import rx.functions.Action1;
 
 /**
  * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
@@ -134,6 +143,19 @@ public class MyWatchFace extends CanvasWatchFaceService {
             mDateTextPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_date_text));
 
             mTime = new Time();
+
+            RxWear.init(getApplicationContext());
+            RxWear.Message.listen()
+                    .compose(MessageEventGetDataMap.filterByPath("/dataMap"))
+                    .subscribe(new Action1<DataMap>() {
+                        @Override
+                        public void call(DataMap dataMap) {
+                            Log.v("MyWatchFace", dataMap.getString("message"));
+                            Log.v("MyWatchFace", dataMap.getString("title"));
+                        }
+                    });
+
+
         }
 
         @Override
@@ -278,6 +300,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 ? new SimpleDateFormat("MMM dd").format(new Date(mTime.toMillis(true)))
                 : new SimpleDateFormat("EEE, MMM dd yyyy").format(new Date(mTime.toMillis(true)));
             canvas.drawText(dateText, mXOffset, (mYOffset + 30), mDateTextPaint);
+            
         }
 
         /**

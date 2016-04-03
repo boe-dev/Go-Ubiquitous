@@ -35,6 +35,9 @@ import com.example.android.sunshine.app.gcm.RegistrationIntentService;
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.patloew.rxwear.RxWear;
+
+import rx.functions.Action1;
 
 public class MainActivity extends AppCompatActivity implements ForecastFragment.Callback {
 
@@ -107,6 +110,19 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
                 startService(intent);
             }
         }
+
+        //TEST
+        RxWear.init(this);
+        RxWear.Message.SendDataMap.toAllRemoteNodes("/dataMap")
+                .putString("title", "Title")
+                .putString("message", "Message")
+                .toObservable()
+                .subscribe(new Action1<Integer>() {
+                    @Override
+                    public void call(Integer integer) {
+                        Log.v("MainActivty", "test");
+                    }
+                });
     }
 
     @Override
