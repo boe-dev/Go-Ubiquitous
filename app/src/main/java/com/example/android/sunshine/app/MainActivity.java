@@ -113,15 +113,15 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
                 startService(intent);
             }
         }
-        RxWear.init(this);
-        RxWear.Message.SendDataMap.toAllRemoteNodes("/sunshine-weather-data")
-                .putString("message", "Message")
-                .toObservable()
-                .subscribe(new Action1<Integer>() {
-                    @Override
-                    public void call(Integer integer) {
-                    }
-                });
+//        RxWear.init(this);
+//        RxWear.Message.SendDataMap.toAllRemoteNodes("/sunshine-weather-data")
+//                .putString("message", "Message")
+//                .toObservable()
+//                .subscribe(new Action1<Integer>() {
+//                    @Override
+//                    public void call(Integer integer) {
+//                    }
+//                });
 
 
     }
