@@ -29,12 +29,15 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Toast;
 
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.gcm.RegistrationIntentService;
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.Wearable;
 import com.patloew.rxwear.RxWear;
 
 import rx.functions.Action1;
@@ -110,19 +113,17 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
                 startService(intent);
             }
         }
-
-        //TEST
         RxWear.init(this);
-        RxWear.Message.SendDataMap.toAllRemoteNodes("/dataMap")
-                .putString("title", "Title")
+        RxWear.Message.SendDataMap.toAllRemoteNodes("/sunshine-weather-data")
                 .putString("message", "Message")
                 .toObservable()
                 .subscribe(new Action1<Integer>() {
                     @Override
                     public void call(Integer integer) {
-                        Log.v("MainActivty", "test");
                     }
                 });
+
+
     }
 
     @Override
