@@ -21,9 +21,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -32,10 +35,17 @@ import android.os.Message;
 import android.support.v4.content.ContextCompat;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.text.Layout;
 import android.text.format.Time;
 import android.util.Log;
+import android.view.Display;
+import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
+import android.view.View;
 import android.view.WindowInsets;
+import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.google.android.gms.wearable.DataMap;
 import com.patloew.rxwear.RxWear;
@@ -58,6 +68,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
     private double high, low;
+    private int weatherId;
 
     /**
      * Update rate in milliseconds for interactive mode. We update once a second since seconds are
@@ -99,8 +110,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
     private class Engine extends CanvasWatchFaceService.Engine {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
-        Paint mBackgroundPaint;
-        Paint mTextPaint, mDateTextPaint, mHighTempTextPaint, mLowTempTextPaint;
         boolean mAmbient;
         Time mTime;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -110,10 +119,15 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 mTime.setToNow();
             }
         };
-        int mTapCount;
 
         float mXOffset;
         float mYOffset;
+
+        private View myLayout;
+        private TextView time, date, highTemp, lowTemp;
+        private ImageView weatherImage;
+        private final Point displaySize = new Point();
+        private int specW, specH;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -134,23 +148,23 @@ public class MyWatchFace extends CanvasWatchFaceService {
             Resources resources = MyWatchFace.this.getResources();
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
-            mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(ContextCompat.getColor(getApplicationContext(), R.color.background));
-
-            mTextPaint = new Paint();
-            mTextPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_text));
-
-            mDateTextPaint = new Paint();
-            mDateTextPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_date_text));
-
-            mHighTempTextPaint = new Paint();
-            mHighTempTextPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_text));
-
-            mLowTempTextPaint = new Paint();
-            mLowTempTextPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_date_text));
-
 
             mTime = new Time();
+
+            LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            myLayout = inflater.inflate(R.layout.watchface, null);
+
+            Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE))
+                    .getDefaultDisplay();
+            display.getSize(displaySize);
+
+
+            time = (TextView) myLayout.findViewById(R.id.time);
+            date = (TextView) myLayout.findViewById(R.id.date);
+            highTemp = (TextView) myLayout.findViewById(R.id.high_temp);
+            lowTemp = (TextView) myLayout.findViewById(R.id.low_temp);
+            weatherImage = (ImageView) myLayout.findViewById(R.id.weather_image);
+
 
             Log.v("MyWatchFace", "RxWear");
             RxWear.Message.listen()
@@ -158,11 +172,9 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     .subscribe(new Action1<DataMap>() {
                         @Override
                         public void call(DataMap dataMap) {
-                            Log.v("MyWatchFace", "high = " + dataMap.getDouble("high-data"));
-                            Log.v("MyWatchFace", "low = " + dataMap.getDouble("low-data"));
-                            Log.v("MyWatchFace", "desc = " + dataMap.getString("desc-data"));
                             high = dataMap.getDouble("high-data");
                             low = dataMap.getDouble("low-data");
+                            weatherId = dataMap.getInt("weather-id");
                         }
                     });
 
@@ -236,10 +248,25 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     ? R.dimen.digital_temp_text_size_round : R.dimen.digital_temp_text_size);
 
 
-            mTextPaint.setTextSize(textSize);
-            mDateTextPaint.setTextSize(dateTextSize);
-            mHighTempTextPaint.setTextSize(tempTextSize);
-            mLowTempTextPaint.setTextSize(tempTextSize);
+            time.setTextSize(textSize);
+            date.setTextSize(dateTextSize);
+            highTemp.setTextSize(tempTextSize);
+            lowTemp.setTextSize(tempTextSize);
+
+            if (insets.isRound()) {
+                // Shrink the face to fit on a round screen
+                mYOffset = mXOffset = displaySize.x * 0.1f;
+                displaySize.y -= 2 * mXOffset;
+                displaySize.x -= 2 * mXOffset;
+            } else {
+                mXOffset = mYOffset = 0;
+            }
+
+            // Recompute the MeasureSpec fields - these determine the actual size of the layout
+            specW = View.MeasureSpec.makeMeasureSpec(displaySize.x, View.MeasureSpec.EXACTLY);
+            specH = View.MeasureSpec.makeMeasureSpec(displaySize.y, View.MeasureSpec.EXACTLY);
+
+
         }
 
         @Override
@@ -260,8 +287,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
             if (mAmbient != inAmbientMode) {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
-                    mTextPaint.setAntiAlias(!inAmbientMode);
-                    mDateTextPaint.setAntiAlias(!inAmbientMode);
+                    //mTextPaint.setAntiAlias(!inAmbientMode);
+                    //mDateTextPaint.setAntiAlias(!inAmbientMode);
                 }
                 invalidate();
             }
@@ -277,51 +304,38 @@ public class MyWatchFace extends CanvasWatchFaceService {
          */
         @Override
         public void onTapCommand(int tapType, int x, int y, long eventTime) {
-            Resources resources = MyWatchFace.this.getResources();
-            switch (tapType) {
-                case TAP_TYPE_TOUCH:
-                    // The user has started touching the screen.
-                    break;
-                case TAP_TYPE_TOUCH_CANCEL:
-                    // The user has started a different gesture or otherwise cancelled the tap.
-                    break;
-                case TAP_TYPE_TAP:
-                    // The user has completed the tap gesture.
-                    mTapCount++;
-                    mBackgroundPaint.setColor(resources.getColor(mTapCount % 2 == 0 ?
-                            R.color.background : R.color.background2));
-                    break;
-            }
             invalidate();
         }
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
             // Draw the background.
+            mTime.setToNow();
             if (isInAmbientMode()) {
-                canvas.drawColor(Color.BLACK);
+                time.setText(String.format("%d:%02d", mTime.hour, mTime.minute));
+                date.setText(new SimpleDateFormat("MMM dd").format(new Date(mTime.toMillis(true))));
+                highTemp.setText(String.valueOf(Math.round(high)) + "°");
+                lowTemp.setVisibility(View.GONE);
+                weatherImage.setVisibility(View.GONE);
+                myLayout.setBackgroundColor(Color.BLACK);
             } else {
-                canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
+                time.setText(String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second));
+                date.setText(new SimpleDateFormat("EEE, MMM dd yyyy").format(new Date(mTime.toMillis(true))));
+                highTemp.setText(String.valueOf(Math.round(high)) + "°");
+                lowTemp.setText(String.valueOf(Math.round(low)) + "°");
+                lowTemp.setVisibility(View.VISIBLE);
+                weatherImage.setImageBitmap(WeatherImage.getBitmap(getApplicationContext(), weatherId));
+                weatherImage.setVisibility(View.VISIBLE);
+                myLayout.setBackgroundResource(R.color.background);
             }
 
-            // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
-            mTime.setToNow();
-            String text = mAmbient
-                    ? String.format("%d:%02d", mTime.hour, mTime.minute)
-                    : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            myLayout.measure(specW, specH);
+            myLayout.layout(0, 0, myLayout.getMeasuredWidth(), myLayout.getMeasuredHeight());
 
-            // Draw MON 01 in ambient mode or DAY, MON 01 YEAR in interactive mode.
-            String dateText = mAmbient
-                ? new SimpleDateFormat("MMM dd").format(new Date(mTime.toMillis(true)))
-                : new SimpleDateFormat("EEE, MMM dd yyyy").format(new Date(mTime.toMillis(true)));
-            canvas.drawText(dateText, mXOffset, (mYOffset + 30), mDateTextPaint);
-
-            // Print high and low temperature
-            canvas.drawText(String.valueOf(Math.round(high)) + "°", mXOffset, (mYOffset + 70), mHighTempTextPaint);
-            canvas.drawText(String.valueOf(Math.round(low)) + "°", (mXOffset + 60), (mYOffset + 70), mLowTempTextPaint);
-
-            
+            // Draw it to the Canvas
+            canvas.drawColor(Color.BLACK);
+            canvas.translate(mXOffset, mYOffset);
+            myLayout.draw(canvas);
         }
 
         /**

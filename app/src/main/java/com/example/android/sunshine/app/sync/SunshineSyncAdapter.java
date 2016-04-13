@@ -338,7 +338,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                     RxWear.Message.SendDataMap.toAllRemoteNodes("/sunshine-weather-data")
                             .putDouble("high-data", high)
                             .putDouble("low-data", low)
-                            .putString("desc-data", description)
+                            .putInt("weather-id", weatherId)
                             .toObservable()
                             .subscribe(new Action1<Integer>() {
                                 @Override
